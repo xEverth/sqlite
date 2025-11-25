@@ -6,9 +6,12 @@ import static android.database.Cursor.FIELD_TYPE_INTEGER;
 import static android.database.Cursor.FIELD_TYPE_NULL;
 import static android.database.Cursor.FIELD_TYPE_STRING;
 import static com.getcapacitor.community.database.sqlite.SQLite.UtilsDelete.findReferencesAndUpdate;
+import static com.getcapacitor.community.database.sqlite.SQLite.UtilsSQLStatement.ParsedCtes;
 import static com.getcapacitor.community.database.sqlite.SQLite.UtilsSQLStatement.extractColumnNames;
+import static com.getcapacitor.community.database.sqlite.SQLite.UtilsSQLStatement.extractStatementType;
 import static com.getcapacitor.community.database.sqlite.SQLite.UtilsSQLStatement.extractTableName;
 import static com.getcapacitor.community.database.sqlite.SQLite.UtilsSQLStatement.extractWhereClause;
+import static com.getcapacitor.community.database.sqlite.SQLite.UtilsSQLStatement.parseCtes;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -649,7 +652,7 @@ public class Database {
      * @throws Exception message
      */
     public JSObject prepareSQL(String statement, ArrayList<Object> values, Boolean fromJson, String returnMode) throws Exception {
-        String stmtType = statement.trim().split("\\s+")[0].toUpperCase();
+        String stmtType = extractStatementType(statement);
         SupportSQLiteStatement stmt = null;
         String sqlStmt = statement;
         String retMode;
@@ -767,7 +770,9 @@ public class Database {
         retObj.put("stmt", sqlStmt);
         retObj.put("names", "");
         int returningIdx = upperStmt.lastIndexOf("RETURNING");
-        if (!(upperStmt.startsWith("INSERT") || upperStmt.startsWith("DELETE") || upperStmt.startsWith("UPDATE")) || (returningIdx == -1)) {
+        String stmtType = extractStatementType(stmt);
+        // Only separate the returning clause when the statement is recognized as INSERT, UPDATE or DELETE
+        if (!(stmtType.equals("INSERT") || stmtType.equals("DELETE") || stmtType.equals("UPDATE")) || (returningIdx == -1)) {
             return retObj;
         }
         String stmtWithoutReturning = String.join(" ", stmt.substring(0, returningIdx).trim().split("\\s+")) + ";";
@@ -812,15 +817,31 @@ public class Database {
         return retVals;
     }
 
+    /** Accounts for CTEs before the UPDATE or DELETE statement */
     private JSArray getUpdDelReturnedValues(Database mDB, String stmt, String colNames) throws Exception {
         JSArray retVals = new JSArray();
+
+        // Extract table name and WHERE clause
         String tableName = extractTableName(stmt);
         String whereClause = extractWhereClause(stmt);
+
         if (whereClause != null && tableName != null) {
-            StringBuilder sbQuery = new StringBuilder("SELECT ").append(colNames).append(" FROM ");
-            sbQuery.append(tableName).append(" WHERE ").append(whereClause).append(";");
+            StringBuilder sbQuery = new StringBuilder();
+
+            // If statement starts with WITH, prepend the CTEs
+            String trimmedStmt = stmt.trim();
+            if (trimmedStmt.toUpperCase().startsWith("WITH")) {
+                ParsedCtes parsedCtes = parseCtes(trimmedStmt);
+                // Append the full CTE text from the original statement
+                sbQuery.append(trimmedStmt, 0, parsedCtes.endIndex).append(" ");
+            }
+
+            // Append the main SELECT
+            sbQuery.append("SELECT ").append(colNames).append(" FROM ").append(tableName).append(" WHERE ").append(whereClause).append(";");
+
             retVals = mDB.selectSQL(sbQuery.toString(), new ArrayList<>());
         }
+
         return retVals;
     }
 
