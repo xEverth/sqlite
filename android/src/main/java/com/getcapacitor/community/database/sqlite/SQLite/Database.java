@@ -740,7 +740,7 @@ public class Database {
         JSObject retObj = new JSObject();
         JSObject retIsReturning = isReturning(sqlStmt);
         Boolean isReturning = retIsReturning.getBoolean("isReturning");
-        String stmt = retIsReturning.getString("stmt");0.
+        String stmt = retIsReturning.getString("stmt");
         String suffix = retIsReturning.getString("names");
         retObj.put("stmt", stmt);
         retObj.put("names", "");
