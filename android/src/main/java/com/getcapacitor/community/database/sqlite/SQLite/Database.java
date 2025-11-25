@@ -641,9 +641,9 @@ public class Database {
     /**
      * PrepareSQL Method
      *
-     * @param statement SQL statement
-     * @param values SQL Values if any
-     * @param fromJson is the statement from importFromJson
+     * @param statement  SQL statement
+     * @param values     SQL Values if any
+     * @param fromJson   is the statement from importFromJson
      * @param returnMode return mode to handle RETURNING
      * @return JSObject
      * @throws Exception message
@@ -657,18 +657,13 @@ public class Database {
         JSObject retObject = new JSObject();
         String colNames = "";
         long initLastId = (long) -1;
-        /*        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
-          retMode = returnMode;
-          throw new Exception(retMode +"Not implemented for above TIRAMISU");
-        } else {
-
- */
         retMode = (returnMode == null) ? "no" : returnMode;
         if (!"no".equals(retMode)) {
             retMode = "wA" + retMode;
         }
-        //       }
         try {
+            // Separate the statement from the returning clause,
+            // which is unsupported for most Android versions
             JSObject stmtObj = getStmtAndRetColNames(sqlStmt, retMode);
             sqlStmt = stmtObj.getString("stmt", sqlStmt);
             colNames = stmtObj.getString("names", "");
@@ -716,14 +711,6 @@ public class Database {
                     retValues = getUpdDelReturnedValues(this, sqlStmt, colNames);
                 }
             }
-            /*
-          if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
-
-            if (retMode.startsWith("one") || retMode.startsWith("all")) {
-              throw new Exception("returnMode : " + retMode + "Not implemented for above TIRAMISU");
-            }
-          }
-           */
             retObject.put("lastId", lastId);
             retObject.put("values", retValues);
             return retObject;
@@ -740,14 +727,14 @@ public class Database {
         JSObject retObj = new JSObject();
         JSObject retIsReturning = isReturning(sqlStmt);
         Boolean isReturning = retIsReturning.getBoolean("isReturning");
-        String stmt = retIsReturning.getString("stmt");0.
+        String stmt = retIsReturning.getString("stmt");
         String suffix = retIsReturning.getString("names");
         retObj.put("stmt", stmt);
         retObj.put("names", "");
 
         if (isReturning && retMode.startsWith("wA") && suffix.toLowerCase().startsWith("returning")) {
-          String returnExpr = suffix.substring("returning".length()).trim();
-          retObj.put("names", getNames(returnExpr));
+            String returnExpr = suffix.substring("returning".length()).trim();
+            retObj.put("names", getNames(returnExpr));
         }
         return retObj;
     }
@@ -780,16 +767,13 @@ public class Database {
         retObj.put("stmt", sqlStmt);
         retObj.put("names", "");
         int returningIdx = upperStmt.lastIndexOf("RETURNING");
-        if( !(upperStmt.startsWith("INSERT") || 
-            upperStmt.startsWith("DELETE") || 
-            upperStmt.startsWith("UPDATE")
-            ) || (returningIdx == -1)) {
+        if (!(upperStmt.startsWith("INSERT") || upperStmt.startsWith("DELETE") || upperStmt.startsWith("UPDATE")) || (returningIdx == -1)) {
             return retObj;
         }
-        String stmtWithoutReturning = String.join(" ",stmt.substring(0, returningIdx).trim().split("\\s+")) + ";";
+        String stmtWithoutReturning = String.join(" ", stmt.substring(0, returningIdx).trim().split("\\s+")) + ";";
         String returningClause = stmt.substring(returningIdx).trim();
         if (!returningClause.endsWith((";"))) {
-          returningClause += ";";
+            returningClause += ";";
         }
         // INSERT, DELETE, UPDATE
         retObj.put("isReturning", true);
